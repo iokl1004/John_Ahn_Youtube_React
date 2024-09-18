@@ -1,0 +1,43 @@
+4. 비디오 업로드 FORM 만들기 (1)
+
+1. Upload Page 만들기
+2. Upload Page Route 만들기
+3. Upload Page Header Tab 만들기
+4. Form Template 만들기
+5. 파일을 올리는 Template 만들기 위해 Drop-zone 다운받기
+ - npm install react-dropzone --save
+6. onChange func 만들기
+
+---
+
+root 디렉토리에서 npm run dev Enter!
+root 디렉토리의 package.json에서 "scripts": 부분 참조...
+
+---
+아래와 에러와 같이 발생을 하였다
+
+Error: error:0308010C:digital envelope routines::unsupported
+[1]     at new Hash (node:internal/crypto/hash:79:19)
+[1]     at Object.createHash (node:crypto:139:10)
+[1]     at module.exports (C:\Users\iokl3\OneDrive\문서\0. git\John_Ahn\John_Ahn_Youtube_React\1. Dev\boilerplate-mern-stack-master\client\node_modules\webpack\lib\util\createHash.js:135:53)
+[1]     at NormalModule._initBuildHash (C:\Users\iokl3\OneDrive\문서\0. git\John_Ahn\John_Ahn_Youtube_React\1. Dev\boilerplate-mern-stack-master\client\node_modules\webpack\lib\NormalModule.js:417:16)
+[1]     at handleParseError (C:\Users\iokl3\OneDrive\문서\0. git\John_Ahn\John_Ahn_Youtube_React\1. Dev\boilerplate-mern-stack-master\client\node_modules\webpack\lib\NormalModule.js:471:10)
+[1]     at C:\Users\iokl3\OneDrive\문서\0. git\John_Ahn\John_Ahn_Youtube_React\1. Dev\boilerplate-mern-stack-master\client\node_modules\webpack\lib\NormalModule.js:503:5
+[1]     at C:\Users\iokl3\OneDrive\문서\0. git\John_Ahn\John_Ahn_Youtube_React\1. Dev\boilerplate-mern-stack-master\client\node_modules\webpack\lib\NormalModule.js:358:12
+[1]     at C:\Users\iokl3\OneDrive\문서\0. git\John_Ahn\John_Ahn_Youtube_React\1. Dev\boilerplate-mern-stack-master\client\node_modules\loader-runner\lib\LoaderRunner.js:373:3
+[1]     at iterateNormalLoaders (C:\Users\iokl3\OneDrive\문서\0. git\John_Ahn\John_Ahn_Youtube_React\1. Dev\boilerplate-mern-stack-master\client\node_modules\loader-runner\lib\LoaderRunner.js:214:10)
+[1]     at iterateNormalLoaders (C:\Users\iokl3\OneDrive\문서\0. git\John_Ahn\John_Ahn_Youtube_React\1. Dev\boilerplate-mern-stack-master\client\node_modules\loader-runner\lib\LoaderRunner.js:221:10)
+[1] C:\Users\iokl3\OneDrive\문서\0. git\John_Ahn\John_Ahn_Youtube_React\1. Dev\boilerplate-mern-stack-master\client\node_modules\react-scripts\scripts\start.js:19
+[1]   throw err;
+[1]   ^
+
+에러 해결 블로그 : https://velog.io/@angel_eugnen/TILerror0308010cdigital-envelope-routinesunsupported
+client의 react-scripts의 버전이 3버전이여서 v5.0.0 버전으로 업그레이드를 하였다!
+npm install --save --save-exact react-scripts@5.0.0
+
+그리고 확실하게 하기 위해서
+1. client의 node_modules 폴더와 package-lock.json 파일을 삭제
+2. npm 캐시 정리
+ - npm cache clean --force
+3. 종속성을 다시 설치
+ - npm install

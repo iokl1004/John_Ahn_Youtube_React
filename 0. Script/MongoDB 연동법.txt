@@ -1,0 +1,10 @@
+MongoDB 연동법
+1. MongoDB 클러스터 생성
+2. 좌측 메뉴의 Database 탭에서 해당 클러스터의 Connect 버튼을 클릭!
+3. "Connect to your application"의 Drivers 클릭
+4. "3. Add your connection string into your application code" 하단의 "mongodb+srv://....." 부분을 복사한다!
+5. vsCode로 넘어와서 server/config/dev.js 파일에 mongoURI 란에 복사한부분을 기재한다!
+module.exports = {
+    mongoURI:'mongodb+srv://iokl1004:password@boilerplate.sepbw.mongodb.net/?retryWrites=true&w=majority&appName=boilerplate'
+}
+※ 사용자 확인은 MongoDB 홈페이지의 좌측 메뉴 "Security" 탭의 "Database Access" 에서 유저를 생성 할 수도 있다!
