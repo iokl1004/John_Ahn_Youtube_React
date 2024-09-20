@@ -1,0 +1,206 @@
+6. Multer로 노드 서버에 비디오 저장하기
+
+Nulter로 서버에 비디오 저장하기
+
+0. OnDrop func 만들기
+1. 노드 서버에 파일을 저장하기 위해 Dependecy를 먼저 다운로드
+ - npm install multer --save in Server directory
+2. 비디오 파일을 서버로 보내기
+3. 받은 비디오 파일을 서버에서 저장
+4. 파일저장 경로를 클라이언트로 전달해 주기
+
+---
+(client/src/components/views/VideoUploadPage/VideoUploadPage.js)
+import React from 'react'
+import { Typography, Button, Form, message, Input} from 'antd';
+import Icon from '@ant-design/icons';
+import Dropzone from 'react-dropzone';
+import { useState } from 'react';
+import Axios from 'axios';
+
+const { TextArea} = Input;
+const { Title } = Typography;
+
+const PrivateOptions = [
+    {value: 0, label : "Private"},
+    {value: 1, label : "Publice"},
+]
+
+function VideoUploadPage() {
+    const [VideoTitle, setVideoTitle] = useState("")
+    const [Description, setDescription] = useState("")
+    const [Private, setPrivate] = useState(0);
+    const [Category, setCategory] = useState("File & Animation")
+
+    
+    const CategoryOptions = [
+        { value : 0, label : "Film & Animation"},
+        { value : 1, label : "Autos & Vehicles"},
+        { value: 2, label : "Music"},
+        { value: 3, label : "Pets & Animals"},
+    ]
+
+    const onTitleChange = (e) => {
+        setVideoTitle(e.currentTarget.value)
+    }
+
+    const onDescriptChange = (e) => {
+        setDescription(e.currentTarget.value)
+    }
+
+    const onPrivateChange = (e) => {
+        setPrivate(e.currentTarget.value)
+    }
+
+    const onCategoryChange = (e) => {
+        setCategory(e.currentTarget.value)
+    }
+
+    const onDrop = (files) => {
+        let formData = new FormData;
+        const config = {
+            header : {'content-type' : 'multipart/form-data'}
+        }
+        formData.append("file", files[0])
+        console.log(files);
+
+        // 리퀘스트를 서버에 보내고 받고 한다!
+        Axios.post('/api/video/uploadfiles', formData, config)
+        .then(response => {
+            if(response.data.success) {
+                console.log(response.data)
+            } else {
+                alert('비디오 업로드를 실패했습니다.')
+            }
+        })
+    }
+
+  return (
+    <div style={{ maxWidth : '700px', margin : '2rem auto'}}>
+        <div style = {{ textAlign : 'center', marginBottom : '2rem' }} >
+            <Title level={2}>Upload Video</Title>
+        </div>
+
+        <Form onSubmit>
+            <div style = {{ display : 'flex', justifyContent : 'space-between'}}>
+                {/* Drop zone */}
+                <Dropzone
+                    onDrop = {onDrop}
+                    multiple = {false}  // 파일을 한개만 한다? flase, 여러개로 올린다? true
+                    maxSize = {1000000000}
+                >
+                    {({ getRootProps, getInputProps}) => (
+                        <div style = {{ width:'300px', height:'240px', border:'1px solid lightgray',
+                                        display : 'flex', alignItems:'center', justifyContent:'center'}}
+                                    {...getRootProps()}>
+                            <input {...getInputProps()} />
+                            <Icon type="plus" style={{ fontSize:'3rem'}} />
+                            {/* <PlusOutlined style={{ fontSize:'3rem'}} /> */}
+                        </div>
+                    )}
+                </Dropzone>
+                {/* Thuimbnail */}
+                <div>
+                    <img src="" alt />
+                </div>
+
+            </div>
+            <br />
+            <br />
+            <label>Title</label>
+            <Input
+                onChange = {onTitleChange}
+                value = {VideoTitle}
+            />
+            <br />
+            <br />
+            <label>Description</label>
+            <TextArea
+                onChange = {onDescriptChange}
+                value = {Description}
+            />
+            <br />
+            <br />
+
+            <select onChange = {onPrivateChange}>
+                {PrivateOptions.map((item, index) => (
+                    <option key={index} value={item.value}>{item.label}</option>
+                ))}
+            </select>
+
+            <br />
+            <br />
+            <select onChange = {onCategoryChange}>
+                {CategoryOptions.map((item, index) => (
+                    <option key={index} value={item.value}>{item.label}</option>
+                ))}
+            </select>
+            <br />
+            <br />
+            <Button type="primary" size="large" onClick>
+                Submit
+            </Button>
+        </Form>
+      
+    </div>
+  )
+}
+
+export default VideoUploadPage;
+---
+(server/routes/video.js)
+const express = require('express');
+const router = express.Router();
+//const { Video } = require("../models/Video");
+
+const { auth } = require("../middleware/auth");
+const multer = require("multer");   // multer를 이용하여 파일을 저장한다!
+
+// config 옵션이라고 생각하면 된다!
+let storage = multer.diskStorage({
+    // 파일을 올릴때 저장할지 설명을 해주는것이다.
+    destination : (req, file, cb) => {
+        cb(null, "uploads/");
+    },
+
+    // 저장을 할 때 어떤 파일이름으로 저장을 할지
+    filename: (req, file, cb) => {
+        cb(null, `${Date.now()}_${file.originalname}`);
+    },
+
+    // mp4만 파일이 저장 가능 하도록!
+    fileFilter : (req, file, cb) => {
+        const ext = path.extname(file.originalname)
+        if (ext !== '.mp4') {
+        // 만약 png 파일도 출력을 하고 싶다면?!
+        // if (ext !== '.mp4' || ext !== '.png') {
+            return cb(res.status(400).end('only mp4 is allowed'), false);
+        }
+        cb(null, true)
+    }
+});
+
+// 파일은 하나만(싱글)
+const upload = multer({ storage : storage}).single("file");
+
+//=================================
+//             User
+//=================================
+router.post('/uploadfiles', (req, res) => {
+    // 클라이언트에서 받은 비디오를 서버에 저장한다.
+    upload(req, res, err => {
+        if(err) {
+            return res.json({ success : false, err})
+        }
+        
+        // url은? 파일을 업로드 하면 upload 폴더 안에 들어가는데 그 경로를 클라이언트에 보내준다!
+        return  res.json({ success : true, url : res.req.file.path, fileName : res.req.file.filename })
+    })
+})
+
+module.exports = router;
+---
+(server/index.js)
+(중략...)
+app.use('/api/users', require('./routes/users'));
+app.use('/api/video', require('./routes/video'));	// 추가
