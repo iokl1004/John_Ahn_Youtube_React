@@ -1,0 +1,332 @@
+8. 랜딩 페이지에 비디오들 나타나게 하기
+
+1. 빈 랜딩 페이지 생성
+2. 비디오 카드 Template 만들기
+3. 몽고 DB에서 모든 비디오 데이터 가져오기
+4. 가져온 비디오 데이터들을 스크린에 출력하기
+ - use map() methods
+---
+(client/src/components/views/LandingPage/LandingPage.js)
+import React from 'react'
+import { FaCode } from "react-icons/fa";
+import { Card, Avatar, Col, Typography, Row } from 'antd';
+import Icon from '@ant-design/icons';
+import { useEffect, useState } from 'react';
+import Axios from 'axios';
+import moment from 'moment';
+
+const { Title } = Typography
+const { Meta } = Card;
+
+function LandingPage() {
+    // 비디오 정보 저장
+    const [Video, setVideo] = useState([])
+
+    useEffect(() => {
+        Axios.get('/api/video/getVideos')
+        .then(response => {
+            if(response.data.success) {
+                console.log(response.data)
+                setVideo(response.data.videos)
+            } else {
+                alert('비디오 가져오기를 실패 했습니다.')
+            }
+        })
+    }, [])
+
+    const renderCards = Video.map((video, index) => {
+        // 분, 초 구하기
+        var minutes = Math.floor(video.duration / 60);
+        var seconds = Math.floor((video.duration - minutes * 60));
+
+        // 가장 클때는 Column 하나당 6 사이즈
+        // 가장 작을때는 Column 사이즈가 24 사이즈고
+        return (
+            <Col lg = {6} md={8} xs={24} key={index}>
+                <a href={`/video/post/${video._id}`} >
+                    <div style={{ position : 'relative' }}>
+                        <img style={{ width : '100%'}} src={`http://localhost:5000/${video.thumbnail}`}/>
+                        <div className="duration">
+                            <span>{minutes} : {seconds}</span>
+                        </div>
+                    </div>
+                </a>
+                <br />
+                <Meta
+                    // 유저 이미지
+                    avatar={
+                        <Avatar src={video.writer.image} />
+                    }
+                    title={video.title}
+                    description=""
+                />
+                <span style = {{ marginLeft : '3rem'}}>{video.writer.name} </span><br />
+                <span style = {{ marginLeft : '3rem'}}>{video.views} views</span> - <span>{moment(video.createdAt).format("MMM Do YY")}</span>
+            </Col>
+        )
+
+    })
+
+    return (
+        <div style = {{ width : '85%', margin : '3rem auto' }}>
+            <Title level={2}> Recommended </Title>
+                <hr />
+                {/* Row 1개에 4개의 Column을 나오게 하기 위함. */}
+                <Row gutter={[32, 16]}>
+                    {renderCards}
+                </Row>
+        </div>
+    )
+}
+
+export default LandingPage
+---
+(client/src/index.css)
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", "Oxygen", "Ubuntu", "Cantarell", "Fira Sans",
+    "Droid Sans", "Helvetica Neue", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, "Courier New", monospace;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol";
+  font-size: 14px;
+  line-height: 1.5;
+  color: #24292e;
+  background-color: #fff;
+}
+
+.app {
+  flex-direction: column;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+}
+
+input.error {
+  border-color: red;
+}
+
+
+.input-feedback {
+  color: red;
+  height: 5px;
+  margin-top: -12px;
+}
+
+.duration {
+  bottom : 0;
+  right : 0;
+  position : absolute;
+  margin : 4px;
+  color : #fff;
+  background-color : rgba(17, 17, 17, 0.8);
+  opacity: 0.8;
+  padding : 2px 4px;
+  border-radius : 2px;
+  letter-spacing : 0.5px;
+  font-size : 12px;
+  font-weight : 500;
+  line-height : 12px;
+}
+---
+(client/src/components/views/VideoUploadPage/VideoUploadPage.js)
+import React from 'react'
+import { Typography, Button, Form, message, Input} from 'antd';
+import Icon from '@ant-design/icons';
+import Dropzone from 'react-dropzone';
+import { useState } from 'react';
+import Axios from 'axios';
+import { useSelector } from 'react-redux';  // redux
+
+const { TextArea} = Input;
+const { Title } = Typography;
+
+const PrivateOptions = [
+    {value: 0, label : "Private"},
+    {value: 1, label : "Publice"},
+]
+
+function VideoUploadPage(props) {
+    const user = useSelector(state => state.user)   // state에서 user정보를 가지고 온다!
+    const [VideoTitle, setVideoTitle] = useState("")
+    const [Description, setDescription] = useState("")
+    const [Private, setPrivate] = useState(0);
+    const [Category, setCategory] = useState("File & Animation")
+    const [FilePath, setFilePath] = useState("")
+    const [Duration, setDuration] = useState("")
+    const [ThumbnailPath, setThumbnailPath] = useState("");
+
+    
+    const CategoryOptions = [
+        { value : 0, label : "Film & Animation"},
+        { value : 1, label : "Autos & Vehicles"},
+        { value: 2, label : "Music"},
+        { value: 3, label : "Pets & Animals"},
+    ]
+
+    const onTitleChange = (e) => {
+        setVideoTitle(e.currentTarget.value)
+    }
+
+    const onDescriptChange = (e) => {
+        setDescription(e.currentTarget.value)
+    }
+
+    const onPrivateChange = (e) => {
+        setPrivate(e.currentTarget.value)
+    }
+
+    const onCategoryChange = (e) => {
+        setCategory(e.currentTarget.value)
+    }
+
+    const onDrop = (files) => {
+        let formData = new FormData;
+        const config = {
+            header : {'content-type' : 'multipart/form-data'}
+        }
+        formData.append("file", files[0])
+        console.log(files);
+
+        // 리퀘스트를 서버에 보내고 받고 한다!
+        Axios.post('/api/video/uploadfiles', formData, config)
+        .then(response => {
+            if(response.data.success) {
+                console.log(response.data)
+
+                let variable = {
+                    url:response.data.url,
+                    fileName : response.data.fileName
+                }
+
+                setFilePath(response.data.url)
+
+                Axios.post('/api/video/thumbnail', variable)
+                .then(response => {
+                    if(response.data.success) {
+                        console.log(response.data)
+                        setDuration(response.data.fileDuration)
+                        setThumbnailPath(response.data.url)
+
+                    } else {
+                        alert('썸네일 생성에 실패 했습니다.')
+                    }
+                })
+            } else {
+                alert('비디오 업로드를 실패했습니다.')
+            }
+        })
+    }
+
+    const onsubmit = (e) => {
+        e.preventDefault(); // 원래 클릭을 하면은 하려고 햇던것들을 방지 할 수 있다!
+        const variables = {
+            writer : user.userData._id,
+            title : VideoTitle,
+            description : Description,
+            privacy : Private,
+            filePath : FilePath,
+            category : Category,
+            duration : Duration,
+            thumbnail : ThumbnailPath,
+        }
+        Axios.post('/api/video/uploadVideo', variables)
+        .then(response => {
+            if(response.data.success) {
+                message.success('성공적으로 업로드를 했습니다.')
+
+                // 3초 뒤에 메인 페이지로 이동을 시켜준다!
+                setTimeout(() => {
+                    props.history.push('/')
+                }, 3000)
+            } else {
+                alert('비디오 업로드에 실패 했습니다.')
+            }
+        })
+    }
+
+  return (
+    <div style={{ maxWidth : '700px', margin : '2rem auto'}}>
+        <div style = {{ textAlign : 'center', marginBottom : '2rem' }} >
+            <Title level={2}>Upload Video</Title>
+        </div>
+
+        <Form onSubmit = {onsubmit}>
+            <div style = {{ display : 'flex', justifyContent : 'space-between'}}>
+                {/* Drop zone */}
+                <Dropzone
+                    onDrop = {onDrop}
+                    multiple = {false}  // 파일을 한개만 한다? flase, 여러개로 올린다? true
+                    maxSize = {1000000000}
+                >
+                    {({ getRootProps, getInputProps}) => (
+                        <div style = {{ width:'300px', height:'240px', border:'1px solid lightgray',
+                                        display : 'flex', alignItems:'center', justifyContent:'center'}}
+                                    {...getRootProps()}>
+                            <input {...getInputProps()} />
+                            <Icon type="plus" style={{ fontSize:'3rem'}} />
+                            {/* <PlusOutlined style={{ fontSize:'3rem'}} /> */}
+                        </div>
+                    )}
+                </Dropzone>
+                {/* Thuimbnail */}
+
+                {/* 썸네일 패스값이 존재 할 경우에만 썸네일을 표시해라! */}
+                {ThumbnailPath &&
+                    <div>
+                        <img src={`http://localhost:5000/${ThumbnailPath}`} alt="thumbnail" />
+                    </div>
+                }
+
+            </div>
+            <br />
+            <br />
+            <label>Title</label>
+            <Input
+                onChange = {onTitleChange}
+                value = {VideoTitle}
+            />
+            <br />
+            <br />
+            <label>Description</label>
+            <TextArea
+                onChange = {onDescriptChange}
+                value = {Description}
+            />
+            <br />
+            <br />
+
+            <select onChange = {onPrivateChange}>
+                {PrivateOptions.map((item, index) => (
+                    <option key={index} value={item.value}>{item.label}</option>
+                ))}
+            </select>
+
+            <br />
+            <br />
+            <select onChange = {onCategoryChange}>
+                {CategoryOptions.map((item, index) => (
+                    <option key={index} value={item.value}>{item.label}</option>
+                ))}
+            </select>
+            <br />
+            <br />
+            <Button type="primary" size="large" onClick={onsubmit}>
+                Submit
+            </Button>
+        </Form>
+      
+    </div>
+  )
+}
+
+export default VideoUploadPage;
