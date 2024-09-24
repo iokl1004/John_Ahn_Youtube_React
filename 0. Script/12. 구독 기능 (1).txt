@@ -1,0 +1,185 @@
+12. 구독 기능 (1)
+
+1. Subscriber Model 만들기
+ - Subscriber
+  - userTo
+  - userFrom
+2. Subscribe Button UI 만들기
+3. 데이터베이스에서 얼마나 많은 사람이 비디오 업로드 한 유저를 구독하는지 정보 가져오기
+4. 내가 이 비디오 업로드 한 유저를 구독하는지 정보 가져오기
+5. 가져온 정보들 화면에 출력
+
+항상 routes를 생성하면 server/index.js에서 추가를 해줘야한다!
+app.use('/api/subscribe', require('./routes/subscribe'));   // 구독
+---
+(server/index.js)
+(중략...)
+app.use('/api/subscribe', require('./routes/subscribe'));   // 구독 추가
+(중략...)
+---
+(server/models/Subscriber.js)
+const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
+
+const subscriberSchema = mongoose.Schema({
+    userTo : {
+        type: Schema.Types.ObjectId,
+        ref : 'User'
+    },
+    userFrom : {
+        type : Schema.Types.ObjectId,
+        ref : 'User'
+    }
+}, { timestamps : true })   // 데이터를 만든 시각을 저장한다
+
+
+
+const Subscriber = mongoose.model('Subscriber', subscriberSchema);
+
+module.exports = { Subscriber }
+---
+(client/src/components/views/VideoDetailPage/VideoDetailPage.js)
+import React, { useEffect, useState } from 'react'
+import { Row, Col, List, Avatar} from 'antd'
+import Axios from 'axios'
+import SideVideo from './Sections/SideVideo'    // 오른쪽 비디오들
+import Subscribe from './Sections/Subscribe'    // 구독
+
+function VideoDetailPage(props) {
+    
+    const videoId = props.match.params.videoId  // Video ID 값 가져오기!
+    const variable = { videoId : videoId }      // videoId : videoId 값
+    const [VideoDetail, setVideoDetail] = useState([])
+
+    useEffect(() => {
+        Axios.post('/api/video/getVideoDetail', variable)
+        .then(response => {
+            if(response.data.success) {
+                setVideoDetail(response.data.videoDetail)   // routes/video.js에서 전달 한 videoDetail값
+            } else {
+                alert('비디오 정보를 가져오길 실패했습니다.')
+            }
+        })
+    }, [])
+
+    if(VideoDetail.writer) {
+        return (
+            <Row gutter = {[16, 16]}>
+                <Col lg={18} xs={24}>
+        
+                <div style={{ width : '100%', padding : '3rem 4rem' }}>
+                    <video style = {{ width : '100%' }} src={`http://localhost:5000/${VideoDetail.filePath}`} controls />
+        
+                    <List.Item
+                        actions={[<Subscribe userTo={VideoDetail.writer._id}/>]}
+                    >
+                        <List.Item.Meta
+                            avatar={<Avatar src ={VideoDetail.writer.image} />}
+                            title={VideoDetail.writer.name}
+                            description={VideoDetail.description}
+                        />
+                    </List.Item>
+        
+                    {/* Comment */}
+        
+                </div>
+        
+                </Col>
+                <Col lg={6} xs={24}>
+                    <SideVideo />
+                </Col>
+            </Row>
+          )
+    } else {
+        return (
+            <div>...loading</div>
+        )
+    }
+
+
+}
+
+export default VideoDetailPage
+---
+(client/src/components/views/VideoDetailPage/Sections/Subscribe.js)
+import Axios from 'axios'
+import React, { useState, useEffect } from 'react'
+
+function Subscribe(props) {
+    
+    const [SubscribeNumber, setSubscribeNumber] = useState();
+    const [Subscribed, setSubscribed] = useState(); // 해당 유튜버 구독 유무
+
+    useEffect(() => {
+        // 해당 영상의 구독자 수 가져오기
+        let variable = { userTo : props.userTo}
+
+        Axios.post('/api/subscribe/subscribeNumber', variable)
+        .then( response => {
+            if(response.data.success) {
+                setSubscribeNumber(response.data.subscribeNumber)
+            } else {
+                alert('구독자 수 정보를 받아오지 못했습니다.')
+            }
+        })
+
+        // 내가 정말 해당 영상을 구독을 하고 있는지?
+        let subscribedVariable = { userTo : props.userTo, userFrom : localStorage.getItem('userId') }
+        Axios.post('/api/subscribe/subscribed', subscribedVariable)
+        .then(response => {
+            if(response.data.success) {
+                setSubscribed(response.data.Subscribed);
+                
+            } else {
+                alert('정보를 받아오지 못했습니다.')
+            }
+        })
+    })
+    return (
+        <div>
+            <button
+                style ={{
+                    backgroundColor : `${Subscribed ? '#AAAAAA' : '#CC0000'}`, borderRadius: '4px',
+                    color: 'white', padding : '10px 16px',
+                    fontWeight : '500', fontSize : '1rem', textTransform : 'uppercase'
+                }}
+                onClick
+                >
+                {/* 구독을 하고 있을경우 "Subscribed", 안하고 있을경우 "Subscribe" */}
+                {SubscribeNumber} {Subscribed ? 'Subscribed' : 'Subscribe'}
+            </button>
+        </div>
+    )
+}
+
+export default Subscribe
+---
+(server/routes/subscribe.js)\
+const express = require('express');
+const router = express.Router();
+
+const { Subscriber } = require("../models/Subscriber");
+
+// 해당 영상의 구독자 수 가져오기
+router.post('/subscribeNumber', (req, res) => {
+    Subscriber.find({ 'userTo' : req.body.userTo })
+    .exec((err, subscribe) => {
+        if(err) return res.status(400).send(err);
+        return res.status(200).json({ success : true, subscribeNumber : subscribe.length })
+    })
+})
+
+// 내가 정말 해당 영상을 구독을 하고 있는지?
+router.post('/subscribed', (req, res) => {
+    Subscriber.find({ 'userTo' : req.body.userTo, 'userFrom' : req.body.userFrom })
+    .exec((err, subscribe) => {
+        if(err) return res.status(400).send(err);
+        let result = false
+        if(subscribe.lenth !== 0) { // 0이 아닐경우, 구독을 하고 있다는 뜻.
+            result = true
+        }
+        res.status(200).json({ success : true, subscribed : result })
+    })
+})
+
+module.exports = router;

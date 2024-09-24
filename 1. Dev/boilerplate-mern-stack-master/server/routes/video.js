@@ -49,6 +49,15 @@ router.post('/uploadfiles', (req, res) => {
     })
 })
 
+router.post('/getVideoDetail', (req, res) => {
+    Video.findOne({ "_id" : req.body.videoId })
+         .populate('writer')    // 이 유저의 다른 정보들을 전부 가져오기 위함.
+         .exec((err, videoDetail) => {
+            if(err) return res.status(400).send(err)
+                return res.status(200).json({ success : true, videoDetail })
+         })
+})
+
 router.post('/uploadVideo', (req, res) => {
     // 비디오 정보들을 저장한다.
     const video = new Video(req.body)

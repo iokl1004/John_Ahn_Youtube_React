@@ -1,0 +1,157 @@
+10. 비디오 디테일 페이지 만들기
+
+1. 비어있는 비디오 디테일 페이지 생성
+ - client/src/components/views/VideoDetailPage/VideoDetailPage.js
+2. 비디오 디테일 페이지를 위한 Route 만들기
+ - App.js
+3. 비디오 디테일 페이지 Template 만들기
+4. MongoDB에서 비디오 데이터 가져오기
+5. 가져온 데이터들을 스크린에 출력한다.
+---
+(client/src/components/views/VideoDetailPage/VideoDetailPage.js)
+import React, { useEffect, useState } from 'react'
+import { Row, Col, List, Avatar} from 'antd'
+import Axios from 'axios'
+
+function VideoDetailPage(props) {
+    
+    const videoId = props.match.params.videoId  // Video ID 값 가져오기!
+    const variable = { videoId : videoId }      // videoId : videoId 값
+    const [VideoDetail, setVideoDetail] = useState([])
+
+    useEffect(() => {
+        Axios.post('/api/video/getVideoDetail', variable)
+        .then(response => {
+            if(response.data.success) {
+                setVideoDetail(response.data.videoDetail)   // routes/video.js에서 전달 한 videoDetail값
+            } else {
+                alert('비디오 정보를 가져오길 실패했습니다.')
+            }
+        })
+    }, [])
+
+    if(VideoDetail.writer) {
+        return (
+            <Row gutter = {[16, 16]}>
+                <Col lg={18} xs={24}>
+        
+                <div style={{ width : '100%', padding : '3rem 4rem' }}>
+                    <video style = {{ width : '100%' }} src={`http://localhost:5000/${VideoDetail.filePath}`} controls />
+        
+                    <List.Item
+                        actions
+                        >
+                            <List.Item.Meta
+                                avatar={<Avatar src ={VideoDetail.writer.image} />}
+                                title={VideoDetail.writer.name}
+                                description={VideoDetail.description}
+                            />
+                    </List.Item>
+        
+                    {/* Comment */}
+        
+                </div>
+        
+                </Col>
+                <Col lg={6} xs={24}>
+                    Side Video
+                </Col>
+            </Row>
+          )
+    } else {
+        return (
+            <div>...loading</div>
+        )
+    }
+
+
+}
+
+export default VideoDetailPage
+---
+(server/routes/video.js)
+(...중략)
+router.post('/getVideoDetail', (req, res) => {
+    Video.findOne({ "_id" : req.body.videoId })
+         .populate('writer')    // 이 유저의 다른 정보들을 전부 가져오기 위함.
+         .exec((err, videoDetail) => {
+            if(err) return res.status(400).send(err)
+                return res.status(200).json({ success : true, videoDetail })
+         })
+})
+(...중략)
+---
+(client/src/components/views/LandingPage/LandingPage.js)
+import React from 'react'
+import { FaCode } from "react-icons/fa";
+import { Card, Avatar, Col, Typography, Row } from 'antd';
+import Icon from '@ant-design/icons';
+import { useEffect, useState } from 'react';
+import Axios from 'axios';
+import moment from 'moment';
+
+const { Title } = Typography
+const { Meta } = Card;
+
+function LandingPage() {
+    // 비디오 정보 저장
+    const [Video, setVideo] = useState([])
+
+    useEffect(() => {
+        Axios.get('/api/video/getVideos')
+        .then(response => {
+            if(response.data.success) {
+                console.log(response.data)
+                setVideo(response.data.videos)
+            } else {
+                alert('비디오 가져오기를 실패 했습니다.')
+            }
+        })
+    }, [])
+
+    const renderCards = Video.map((video, index) => {
+        // 분, 초 구하기
+        var minutes = Math.floor(video.duration / 60);
+        var seconds = Math.floor((video.duration - minutes * 60));
+
+        // 가장 클때는 Column 하나당 6 사이즈
+        // 가장 작을때는 Column 사이즈가 24 사이즈고
+        return (
+            <Col lg = {6} md={8} xs={24} key={index}>
+                <a href={`/video/${video._id}`} >
+                    <div style={{ position : 'relative' }}>
+                        <img style={{ width : '100%'}} src={`http://localhost:5000/${video.thumbnail}`}/>
+                        <div className="duration">
+                            <span>{minutes} : {seconds}</span>
+                        </div>
+                    </div>
+                </a>
+                <br />
+                <Meta
+                    // 유저 이미지
+                    avatar={
+                        <Avatar src={video.writer.image} />
+                    }
+                    title={video.title}
+                    description=""
+                />
+                <span style = {{ marginLeft : '3rem'}}>{video.writer.name} </span><br />
+                <span style = {{ marginLeft : '3rem'}}>{video.views} views</span> - <span>{moment(video.createdAt).format("MMM Do YY")}</span>
+            </Col>
+        )
+
+    })
+
+    return (
+        <div style = {{ width : '85%', margin : '3rem auto' }}>
+            <Title level={2}> Recommended </Title>
+                <hr />
+                {/* Row 1개에 4개의 Column을 나오게 하기 위함. */}
+                <Row gutter={[32, 16]}>
+                    {renderCards}
+                </Row>
+        </div>
+    )
+}
+
+export default LandingPage
