@@ -1,3 +1,26 @@
+15. 댓글 기능 생성 (1) 구조 설명
+
+1. 댓글 부분 구조 설명
+ - Comment Collection
+  - writer
+  - postId
+  - responseTo
+  - content
+2. Comment model 생성
+3. 디테일 비디오 페이지에 Comment Coponent 만들기
+
+COMMENT LISTS (SingleComment.js + ReplyComment.js)
+	Single Comment
+	1. USER INFO
+	2. CONTENT
+	3. COMMENT FORM
+	4. ACTIONS ( LIKES & DISLIKES, REPLY TO)
+		↓
+	Reply Comment
+	<SingleComment />
+	<ReplyComment />
+---
+(client/src/components/views/VideoDetailPage/VideoDetailPage.js)
 import React, { useEffect, useState } from 'react'
 import { Row, Col, List, Avatar} from 'antd'
 import Axios from 'axios'
@@ -72,3 +95,44 @@ function VideoDetailPage(props) {
 }
 
 export default VideoDetailPage
+---
+(server/models/Comment.js)
+const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
+
+const commentSchema = mongoose.Schema({
+    writer : {
+        type : Schema.Types.ObjectId,
+        ref : 'User'
+    },
+    postId : {
+        type : Schema.Types.ObjectId,
+        ref : 'Video'
+    },
+    responseTo : {
+        type : Schema.Types.ObjectId,
+        ref : 'User'
+    },
+    content : {
+        type : String
+    }
+}, { timestamps : true })   // 데이터를 만든 시각을 저장한다
+
+
+
+const Comment = mongoose.model('Comment', commentSchema);
+
+module.exports = { Comment }
+---
+(client/src/components/views/VideoDetailPage/Sections/Comment.js)
+import React from 'react'
+
+function Comment() {
+  return (
+    <div>
+      Comment
+    </div>
+  )
+}
+
+export default Comment

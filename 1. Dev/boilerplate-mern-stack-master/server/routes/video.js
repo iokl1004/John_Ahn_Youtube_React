@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { Video } = require("../models/Video");
-
+const { Subscriber } = require("../models/Subscriber");
 const { auth } = require("../middleware/auth");
 const multer = require("multer");   // multer를 이용하여 파일을 저장한다!
 var ffmpeg = require("fluent-ffmpeg");
@@ -117,5 +117,28 @@ router.post('/thumbnail', (req, res) => {
         filename : 'thumbnail-%b.png'   // 파일 명
     })
 })
+
+// 구독한 유튜버의 비디오를 DB에서 가져와서 클라이언트에 보낸다.
+router.post('/getSubscriptionVideos', (req, res) => {
+    // 자신의 ID를 가지고 구독하는 사람들을 찾는다.
+    Subscriber.find({ userFrom : req.body.userFrom })
+              .exec(( err, subscriberInfo ) => {
+                if(err) return res.status(400).send(err);
+                
+                let subscribedUser = [];
+                subscriberInfo.map((subscriber, i) => {
+                    subscribedUser.push(subscriber.userTo);
+                })
+
+    // "찾은 사람들"의 비디오를 가지고 온다.
+    Video.find({ writer : { $in : subscribedUser }})
+         .populate('writer')
+         .exec((err, videos) => {
+            if(err) return res.status(400).send(err);
+            res.status(200).json({ success: true, videos })
+         })
+    })
+})
+
 
 module.exports = router;

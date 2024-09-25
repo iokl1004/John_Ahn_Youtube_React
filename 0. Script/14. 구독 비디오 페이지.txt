@@ -1,0 +1,410 @@
+14. 구독 비디오 페이지
+
+1. 빈 Subscription 페이지 생성
+2. Subscription Page를 위한 Route 만들기
+3. Template 만들기
+4. 내가 구독한 유저의 비디오들 만 서버에서 가져오기
+5. 가져온 비디오 데이터들을 화면에 출력하기
+---
+(client/src/components/views/SubscriptionPage/SubscriptionPage.js)
+import React from 'react'
+import Axios from 'axios';
+import moment from 'moment';
+import { Card, Avatar, Col, Typography, Row } from 'antd';
+import Icon from '@ant-design/icons';
+import { useEffect, useState } from 'react';
+
+const { Title } = Typography
+const { Meta } = Card;
+
+function SubscriptionPage() {
+    // 비디오 정보 저장
+    const [Video, setVideo] = useState([])
+
+    useEffect(() => {
+        const subscriptionVariable = {
+            userFrom : localStorage.getItem('userId')
+        }
+
+        Axios.post('/api/video/getSubscriptionVideos', subscriptionVariable)
+        .then((response) => {
+            if(response.data.success) {
+                console.log(response.data)
+                setVideo(response.data.videos)
+            } else {
+                alert('비디오 가져오기를 실패 했습니다.')
+            }
+        })
+    }, [])
+
+    const renderCards = Video.map((video, index) => {
+        // 분, 초 구하기
+        var minutes = Math.floor(video.duration / 60);
+        var seconds = Math.floor((video.duration - minutes * 60));
+
+        // 가장 클때는 Column 하나당 6 사이즈
+        // 가장 작을때는 Column 사이즈가 24 사이즈고
+        return (
+            <Col lg = {6} md={8} xs={24} key={index}>
+                <a href={`/video/${video._id}`} >
+                    <div style={{ position : 'relative' }}>
+                        <img style={{ width : '100%'}} src={`http://localhost:5000/${video.thumbnail}`}/>
+                        <div className="duration">
+                            <span>{minutes} : {seconds}</span>
+                        </div>
+                    </div>
+                </a>
+                <br />
+                <Meta
+                    // 유저 이미지
+                    avatar={
+                        <Avatar src={video.writer.image} />
+                    }
+                    title={video.title}
+                    description=""
+                />
+                <span style = {{ marginLeft : '3rem'}}>{video.writer.name} </span><br />
+                <span style = {{ marginLeft : '3rem'}}>{video.views} views</span> - <span>{moment(video.createdAt).format("MMM Do YY")}</span>
+            </Col>
+        )
+
+    })
+
+    return (
+        <div style = {{ width : '85%', margin : '3rem auto' }}>
+            <Title level={2}> Recommended </Title>
+                <hr />
+                {/* Row 1개에 4개의 Column을 나오게 하기 위함. */}
+                <Row gutter={[32, 16]}>
+                    {renderCards}
+                </Row>
+        </div>
+    )
+}
+
+export default SubscriptionPage
+---
+(server/routes/video.js)
+const express = require('express');
+const router = express.Router();
+const { Video } = require("../models/Video");
+const { Subscriber } = require("../models/Subscriber");
+const { auth } = require("../middleware/auth");
+const multer = require("multer");   // multer를 이용하여 파일을 저장한다!
+var ffmpeg = require("fluent-ffmpeg");
+
+// config 옵션이라고 생각하면 된다!
+let storage = multer.diskStorage({
+    // 파일을 올릴때 저장할지 설명을 해주는것이다.
+    destination : (req, file, cb) => {
+        cb(null, "uploads/");
+    },
+
+    // 저장을 할 때 어떤 파일이름으로 저장을 할지
+    filename: (req, file, cb) => {
+        cb(null, `${Date.now()}_${file.originalname}`);
+    },
+
+    // mp4만 파일이 저장 가능 하도록!
+    fileFilter : (req, file, cb) => {
+        const ext = path.extname(file.originalname)
+        if (ext !== '.mp4') {
+        // 만약 png 파일도 출력을 하고 싶다면?!
+        // if (ext !== '.mp4' || ext !== '.png') {
+            return cb(res.status(400).end('only mp4 is allowed'), false);
+        }
+        cb(null, true)
+    }
+});
+
+// 파일은 하나만(싱글)
+const upload = multer({ storage : storage}).single("file");
+
+router.post('/uploadfiles', (req, res) => {
+    // 클라이언트에서 받은 비디오를 서버에 저장한다.
+    upload(req, res, err => {
+        if(err) {
+            return res.json({ success : false, err})
+        }
+        
+        // url은? 파일을 업로드 하면 upload 폴더 안에 들어가는데 그 경로를 클라이언트에 보내준다!
+        return  res.json({
+              success : true
+            , url : res.req.file.path
+            , fileName : res.req.file.filename
+        })
+    })
+})
+
+router.post('/getVideoDetail', (req, res) => {
+    Video.findOne({ "_id" : req.body.videoId })
+         .populate('writer')    // 이 유저의 다른 정보들을 전부 가져오기 위함.
+         .exec((err, videoDetail) => {
+            if(err) return res.status(400).send(err)
+                return res.status(200).json({ success : true, videoDetail })
+         })
+})
+
+router.post('/uploadVideo', (req, res) => {
+    // 비디오 정보들을 저장한다.
+    const video = new Video(req.body)
+    video.save((err, doc) => {
+        if(err) return res.json({ success : false, err })
+            res.status(200).json({ success : true })
+    })
+})
+
+// 비디오를 DB에서 가져와서 클라이언트에 보낸다.
+router.get('/getVideos', (req, res) => {
+    Video.find()    // 비디오 콜렉션안에 있는 모든 비디오를 가져온다!
+    .populate('writer')       // 해주지 않을 경우, writer의 ID만 가져올 수 있음.
+    .exec((err, videos) => {
+        if(err) return res.status(400).send(err);
+        res.status(200).json({ success : true, videos })
+    })
+})
+
+router.post('/thumbnail', (req, res) => {
+    // 썸네일 생성하고 비디오 러닝타입도 가져오기
+
+    let filePath = ""
+    let fileDuration = ""
+
+    // 비디오 정보 가져오기
+    ffmpeg.ffprobe(req.body.url, function (err, metadata) {
+        console.dir(metadata);
+        console.log(metadata.format.duration);
+        fileDuration = metadata.format.duration;
+    })
+
+    // 썸네일 생성
+    // 클라이언트에서 전달 받은 비디오 저장 경로
+    ffmpeg(req.body.url)
+    .on('filenames', function (filenames) {
+        console.log('Will generate ' + filenames.join(', '))
+        console.log(filenames)
+
+        filePath = "uploads/thumbnails/" + filenames[0]
+    })
+    // 썸네일을 생성 후 뭐할 것 인지?
+    .on('end', function() {
+        console.log('Screenshots taken');
+        return res.json({ success : true, url : filePath, fileDuration : fileDuration})
+    })
+    // 에러 발생 시 뭐 할 것인지?!
+    .on('error', function (err) {
+        console.error(err);
+        return res.json({ success: false, err});
+    })
+    //  옵션을 줄수가 있다!
+    .screenshots({
+        count : 3,  // 세개의 썸네일을 찍을 수 있다!
+        folder : 'uploads/thumbnails',  // 저장할 폴더
+        size : '320x240',               // 사이즈
+        filename : 'thumbnail-%b.png'   // 파일 명
+    })
+})
+
+// 구독한 유튜버의 비디오를 DB에서 가져와서 클라이언트에 보낸다.
+router.post('/getSubscriptionVideos', (req, res) => {
+    // 자신의 ID를 가지고 구독하는 사람들을 찾는다.
+    Subscriber.find({ userFrom : req.body.userFrom })
+              .exec(( err, subscriberInfo ) => {
+                if(err) return res.status(400).send(err);
+                
+                let subscribedUser = [];
+                subscriberInfo.map((subscriber, i) => {
+                    subscribedUser.push(subscriber.userTo);
+                })
+
+    // "찾은 사람들"의 비디오를 가지고 온다.
+    Video.find({ writer : { $in : subscribedUser }})
+         .populate('writer')
+         .exec((err, videos) => {
+            if(err) return res.status(400).send(err);
+            res.status(200).json({ success: true, videos })
+         })
+    })
+})
+
+
+module.exports = router;
+---
+(client/src/components/App.js)
+import React, { Suspense } from 'react';
+import { Route, Switch } from "react-router-dom";
+import Auth from "../hoc/auth";
+// pages for this product
+import LandingPage from "./views/LandingPage/LandingPage.js";
+import LoginPage from "./views/LoginPage/LoginPage.js";
+import RegisterPage from "./views/RegisterPage/RegisterPage.js";
+import NavBar from "./views/NavBar/NavBar";
+import Footer from "./views/Footer/Footer"
+import VideoUploadPage from './views/VideoUploadPage/VideoUploadPage.js';
+import VideoDetailPage from './views/VideoDetailPage/VideoDetailPage.js';
+import SubscriptionPage from './views/SubscriptionPage/SubscriptionPage.js';
+
+function App() {
+  return (
+    <Suspense fallback={(<div>Loading...</div>)}>
+      <NavBar />
+      <div style={{ paddingTop: '69px', minHeight: 'calc(100vh - 80px)' }}>
+        <Switch>
+          {/* null인경우, 아무나 들어갈 수 있음. */}
+          <Route exact path="/" component={Auth(LandingPage, null)} />
+          {/* false인 경우 Login 한 사람은 들어갈 수 없음. */}
+          <Route exact path="/login" component={Auth(LoginPage, false)} />
+          <Route exact path="/register" component={Auth(RegisterPage, false)} />
+          <Route exact path="/video/upload" component={Auth(VideoUploadPage, true)} />
+          <Route exact path="/video/:videoId" component={Auth(VideoDetailPage, null)} />
+          <Route exact path="/subscription" component={Auth(SubscriptionPage, null)} />
+        </Switch>
+      </div>
+      <Footer />
+    </Suspense>
+  );
+}
+
+export default App;
+---
+(server/routes/subscribe.js)
+const express = require('express');
+const router = express.Router();
+
+const { Subscriber } = require("../models/Subscriber");
+
+// 해당 영상의 구독자 수 가져오기
+router.post('/subscribeNumber', (req, res) => {
+    Subscriber.find({ 'userTo' : req.body.userTo })
+    .exec((err, subscribe) => {
+        if(err) return res.status(400).send(err);
+        return res.status(200).json({ success : true, subscribeNumber : subscribe.length })
+    })
+})
+
+// 내가 정말 해당 영상을 구독을 하고 있는지?
+router.post('/subscribed', (req, res) => {
+    Subscriber.find({ 'userTo' : req.body.userTo, 'userFrom' : req.body.userFrom })
+    .exec((err, subscribe) => {
+        if(err) return res.status(400).send(err);
+        let result = false
+        if(subscribe.length !== 0) { // 0이 아닐경우, 구독을 하고 있다는 뜻.
+            result = true
+        }
+        res.status(200).json({ success : true, subscribed : result })
+    })
+})
+
+// 구독 취소
+router.post('/unSubscribe', (req, res) => {
+    // findOneAndDelete : filter와 일치하는 컬렉션에서 첫 번째 일치 문서를 삭제.
+    Subscriber.findOneAndDelete({ userTo : req.body.userTo, userFrom : req.body.userFrom })
+    .exec((err, doc) => {
+        if(err) return res.status(400).json({ success : false, err});
+            res.status(200).json({ success : true, doc})
+    })
+})
+
+// 구독
+router.post('/Subscribe', (req, res) => {
+    const subscribe = new Subscriber(req.body);
+
+    subscribe.save((err, doc) => {
+        if(err) return res.json({ success : false, err });
+        res.status(200).json ({ success : true});
+    });
+})
+
+module.exports = router;
+---
+(client/src/components/views/VideoDetailPage/Sections/Subscribe.js)
+import Axios from 'axios'
+import React, { useState, useEffect } from 'react'
+
+function Subscribe(props) {
+    
+    const [SubscribeNumber, setSubscribeNumber] = useState(0);
+    const [Subscribed, setSubscribed] = useState(false); // 해당 유튜버 구독 유무
+
+    useEffect(() => {
+        // 해당 영상의 구독자 수 가져오기
+        let variable = { userTo : props.userTo}
+
+        Axios.post('/api/subscribe/subscribeNumber', variable)
+        .then((response) => {
+            if(response.data.success) {
+                setSubscribeNumber(response.data.subscribeNumber)
+            } else {
+                alert('구독자 수 정보를 받아오지 못했습니다.')
+            }
+        })
+
+        // 내가 정말 해당 영상을 구독을 하고 있는지?
+        let subscribedVariable = { userTo : props.userTo, userFrom : localStorage.getItem('userId') }
+
+        Axios.post('/api/subscribe/subscribed', subscribedVariable)
+        .then((response) => {
+            if(response.data.success) {
+                setSubscribed(response.data.subscribed);
+            } else {
+                alert('정보를 받아오지 못했습니다.')
+            }
+        })
+    }, [])
+    
+    // 구독하기
+    const onSubscribe = () => {
+        let subscribedVariable = {
+              userTo: props.userTo
+            , userFrom: props.userFrom
+        };
+        
+        if (Subscribed) {
+            //이미구독중이라면
+            Axios.post('/api/subscribe/unSubscribe', subscribedVariable)
+                 .then((response) => {
+                    if (response.data.success) {
+                        setSubscribeNumber(SubscribeNumber - 1);
+                        setSubscribed(!Subscribed);
+                    } else {
+                        alert('구독 취소 하는데 실패 했습니다.');
+                    }
+                }
+            )
+        } else {
+            //구독중이 아니라면
+            Axios.post('/api/subscribe/Subscribe', subscribedVariable)
+                 .then((response) => {
+                    if (response.data.success) {
+                        setSubscribeNumber(SubscribeNumber + 1);
+                        setSubscribed(!Subscribed);
+                    } else {
+                        alert('구독 하는데 실패 했습니다.');
+                    }
+                }
+            )
+        }
+    };
+
+    return (
+        <div>
+            <button
+                style ={{
+                      backgroundColor : `${Subscribed ? '#AAAAAA' : '#CC0000'}`
+                    , borderRadius: '4px'
+                    , color: 'white'
+                    , padding : '10px 16px'
+                    , fontWeight : '500'
+                    , fontSize : '1rem'
+                    , textTransform : 'uppercase'
+                }}
+                onClick={onSubscribe}
+            >
+            {/* 구독을 하고 있을경우 "Subscribed", 안하고 있을경우 "Subscribe" */}
+            {SubscribeNumber} {Subscribed ? 'Subscribed' : 'Subscribe'}
+            </button>
+        </div>
+    )
+}
+
+export default Subscribe

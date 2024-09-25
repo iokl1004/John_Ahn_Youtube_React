@@ -18,11 +18,31 @@ router.post('/subscribed', (req, res) => {
     .exec((err, subscribe) => {
         if(err) return res.status(400).send(err);
         let result = false
-        if(subscribe.lenth !== 0) { // 0이 아닐경우, 구독을 하고 있다는 뜻.
+        if(subscribe.length !== 0) { // 0이 아닐경우, 구독을 하고 있다는 뜻.
             result = true
         }
         res.status(200).json({ success : true, subscribed : result })
     })
+})
+
+// 구독 취소
+router.post('/unSubscribe', (req, res) => {
+    // findOneAndDelete : filter와 일치하는 컬렉션에서 첫 번째 일치 문서를 삭제.
+    Subscriber.findOneAndDelete({ userTo : req.body.userTo, userFrom : req.body.userFrom })
+    .exec((err, doc) => {
+        if(err) return res.status(400).json({ success : false, err});
+            res.status(200).json({ success : true, doc})
+    })
+})
+
+// 구독
+router.post('/Subscribe', (req, res) => {
+    const subscribe = new Subscriber(req.body);
+
+    subscribe.save((err, doc) => {
+        if(err) return res.json({ success : false, err });
+        res.status(200).json ({ success : true});
+    });
 })
 
 module.exports = router;

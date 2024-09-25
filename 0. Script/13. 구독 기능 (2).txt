@@ -1,3 +1,11 @@
+13. 구독 기능 (2)
+
+1.  구독하기 기능 만들기			0 Subscribe
+2. 구독 취소하기 기능 만들기		1 Subscribed
+아직 구독중이 아니라면			SUBSCRIBE!!!
+이미 구독중이라면				UN SUBSCRIBE!!!
+---
+(client/src/components/views/VideoDetailPage/Sections/Subscribe.js)
 import Axios from 'axios'
 import React, { useState, useEffect } from 'react'
 
@@ -25,7 +33,7 @@ function Subscribe(props) {
         Axios.post('/api/subscribe/subscribed', subscribedVariable)
         .then((response) => {
             if(response.data.success) {
-                setSubscribed(response.data.subscribed);
+                setSubscribed(response.data.Subscribed);
             } else {
                 alert('정보를 받아오지 못했습니다.')
             }
@@ -88,3 +96,53 @@ function Subscribe(props) {
 }
 
 export default Subscribe
+---
+(server/routes/subscribe.js)
+const express = require('express');
+const router = express.Router();
+
+const { Subscriber } = require("../models/Subscriber");
+
+// 해당 영상의 구독자 수 가져오기
+router.post('/subscribeNumber', (req, res) => {
+    Subscriber.find({ 'userTo' : req.body.userTo })
+    .exec((err, subscribe) => {
+        if(err) return res.status(400).send(err);
+        return res.status(200).json({ success : true, subscribeNumber : subscribe.length })
+    })
+})
+
+// 내가 정말 해당 영상을 구독을 하고 있는지?
+router.post('/subscribed', (req, res) => {
+    Subscriber.find({ 'userTo' : req.body.userTo, 'userFrom' : req.body.userFrom })
+    .exec((err, subscribe) => {
+        if(err) return res.status(400).send(err);
+        let result = false
+        if(subscribe.lenth !== 0) { // 0이 아닐경우, 구독을 하고 있다는 뜻.
+            result = true
+        }
+        res.status(200).json({ success : true, subscribed : result })
+    })
+})
+
+// 구독 취소
+router.post('/unSubscribe', (req, res) => {
+    // findOneAndDelete : filter와 일치하는 컬렉션에서 첫 번째 일치 문서를 삭제.
+    Subscriber.findOneAndDelete({ userTo : req.body.userTo, userFrom : req.body.userFrom })
+    .exec((err, doc) => {
+        if(err) return res.status(400).json({ success : false, err});
+            res.status(200).json({ success : true, doc})
+    })
+})
+
+// 구독
+router.post('/Subscribe', (req, res) => {
+    const subscribe = new Subscriber(req.body);
+
+    subscribe.save((err, doc) => {
+        if(err) return res.json({ success : false, err });
+        res.status(200).json ({ success : true});
+    });
+})
+
+module.exports = router;
