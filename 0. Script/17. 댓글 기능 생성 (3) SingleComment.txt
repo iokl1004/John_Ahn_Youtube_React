@@ -1,0 +1,294 @@
+17. 댓글 기능 생성 (3) SingleComment
+
+1. Comment.js 에다가 SingleComment Component를 생성
+2. Single Comment를 위한 Template 생성
+3. Open Reply func와 handleChange func 만들기
+4. OnSubmit func 만들기
+5. 모든 Comment 정보들을 데이터베이스에서 가져오기
+6. 저장된 댓글을 Parent Component에다가 업데이트
+---
+(client/src/components/views/VideoDetailPage/VideoDetailPage.js)
+import React, { useEffect, useState } from 'react'
+import { Row, Col, List, Avatar} from 'antd'
+import Axios from 'axios'
+import SideVideo from './Sections/SideVideo'    // 오른쪽 비디오들
+import Subscribe from './Sections/Subscribe'    // 구독
+import Comment from './Sections/Comment'        // 댓글
+
+function VideoDetailPage(props) {
+    
+    const videoId = props.match.params.videoId; // Video ID 값 가져오기!
+    const variable = { videoId : videoId }      // videoId : videoId 값
+    const [VideoDetail, setVideoDetail] = useState([]);
+    const [Comments, setComments] = useState([]);   // Comments(댓글)가 담길 빈 배열을 만들어 준다.
+
+    useEffect(() => {
+        Axios.post('/api/video/getVideoDetail', variable)
+        .then((response) => {
+            if(response.data.success) {
+                setVideoDetail(response.data.videoDetail)   // routes/video.js에서 전달 한 videoDetail값
+            } else {
+                alert('비디오 정보를 가져오길 실패했습니다.')
+            }
+        });
+
+        // 해당 비디오의 모든 댓글을 가져오기
+        Axios.post('/api/comment/getComments', variable)
+        .then((response) => {
+            if(response.data.success) {
+                console.log(response.data.comments)
+                setComments(response.data.comments)
+            } else {
+                alert('코멘트 정보를 가져오는 것을 실패 하였습니다.')
+            }
+        });
+    }, [])
+
+    const refreshFunction = (newComment) => {
+        // 자식컴포넌트에서 버튼을 클릭하면, 자식에서 받아온 comment정보(새 댓글)를 newComment라고 한다.
+        console.log(newComment);
+        setComments(Comments.concat(newComment))    // Comments(댓글)가 담긴 배열에 자식에서 받아온 newComment(새 댓글)를 추가한다.
+    }
+
+    if(VideoDetail.writer) {
+
+        //만약 페이지의 동영상이 본인의 동영상이면 구독버튼을 안보이게만든다.
+        const subscribeButton = VideoDetail.writer._id !==
+        localStorage.getItem('userId') && (
+            <Subscribe
+                userTo={VideoDetail.writer._id}
+                userFrom={localStorage.getItem('userId')}
+            />
+        );
+        //witer를 서버에서 가져오기전에 페이지를 렌더링 할려고해서
+        //VideoDetail.writer.image 부분에서 type error가 발생한다.
+        return (
+            <Row gutter = {[16, 16]}>
+                <Col lg={18} xs={24}>
+        
+                <div style={{ width : '100%', padding : '3rem 4rem' }}>
+                    <video style = {{ width : '100%' }} src={`http://localhost:5000/${VideoDetail.filePath}`} controls />
+        
+                    <List.Item
+                        actions={[subscribeButton]}
+                    >
+                        <List.Item.Meta
+                            avatar={<Avatar src ={VideoDetail.writer.image} />}
+                            title={VideoDetail.writer.name}
+                            description={VideoDetail.description}
+                        />
+                    </List.Item>
+        
+                    {/* Comment */}
+                    <Comment
+                        refreshFunction={refreshFunction}
+                        commentLists={Comments}
+                        postId={videoId}
+                    />
+        
+                </div>
+        
+                </Col>
+                <Col lg={6} xs={24}>
+                    <SideVideo />
+                </Col>
+            </Row>
+          )
+    } else {
+        return (
+            <div>...loading</div>
+        )
+    }
+
+
+}
+
+export default VideoDetailPage
+---
+(client/src/components/views/VideoDetailPAge/Sections/Comments.js)
+import React, { useEffect, useState } from 'react'
+import Axios from 'axios';
+import { useSelector } from 'react-redux';
+import SingleComment from './SingleComment';
+
+function Comment(props) {
+  const videoId = props.postId                          // 비디오 ID
+  const user = useSelector((state) => state.user);      // Redux를 이용하여, Login한 유저의 정보를 가져온다!
+  const [commentValue, setCommentValue] = useState(); // 댓글
+
+  const handleClick = (e) => {
+      setCommentValue(e.currentTarget.value);
+  }
+
+  const onSubmit = (e) => {
+    // 댓글 버튼 클릭 시, 새로고침 방지
+    e.preventDefault();
+
+    const variables = {
+        content : commentValue      // 댓글
+      , writer : user.userData._id  // Login 한 유저의 ID
+      , postId : videoId            // 비디오 ID
+    }
+
+    // 입력한 사람의 정보, 코멘트의 내용 여러가지 정보를 DB에 넣어줘야함
+    Axios.post('/api/comment/saveComment', variables)
+    .then((response) => {
+      if(response.data.success) {
+        // console.log(response.data.result)
+        setCommentValue("");
+        props.refreshFunction(response.data.result) // 부모컴포넌트 DB에 저장된 댓글 정보를 전달해줌.
+      } else {
+        alert('코멘트를 저장하지 못했습니다.')
+      }
+    })
+  }
+
+  return (
+    <div>
+      {/* Coment Lists */}
+      {props.commentLists &&
+        props.commentLists.map(
+          (comment, index) => 
+          !comment.responseTo && (
+            <SingleComment
+              key={index}
+              refreshFunction={props.refreshFunction}
+              comment={comment}
+              postId={videoId}
+            />
+        )
+      )}
+
+      {/* Root Comment Form */}
+
+      <form style={{ display : 'flex'}} onSubmit={onSubmit} >
+        <textarea
+          style = {{ width : '100%', borderRadius : '5px' }}
+          onChange={handleClick}
+          value={commentValue}
+          placeholder='코멘트를 작성해 주세요'
+        />
+        <br />
+        <button style ={{ width : '20%', height : '52px' }} onClick={onSubmit}>Submit</button>
+      </form>
+    </div>
+  )
+}
+
+export default Comment
+---
+(client/src/components/views/VideoDetailPage/Sections/SingleComment.js)
+import React from 'react'
+import { Comment, Avatar, Button, Input } from 'antd';
+import { useState } from 'react';
+import { useSelector } from 'react-redux';
+import Axios from 'axios';
+
+const { TextArea } = Input;
+
+function SingleComment(props) {
+
+    const user = useSelector((state) => state.user);        // Login한 유저의 정보를 가져온다!
+    const [OpenReply, setOpenRelpy] = useState(false);      // 대댓글 상태
+    const [CommentValue, setCommentValue] = useState("")    // 대댓글
+
+    // 대댓글 달기 버튼 클릭 시 대댓글입력 폼 유무
+    const onClickReplyOpen = () => {
+        setOpenRelpy(!OpenReply)
+    }
+
+    // 대댓글 값 변화
+    const onHandleChange = (e) => {
+        setCommentValue(e.currentTarget.value)
+    }
+
+    // 댓글 서버에 전송
+    const onSubmit = (e) => {
+        e.preventDefault(); // Submit 버튼 클릭 시, 새로고침 방지
+
+        // 입력한 사람의 정보, 코멘트의 내용 여러가지 정보를 DB에 넣어줘야함
+        const variables = {
+            content : CommentValue          // 대댓글
+          , writer : user.userData._id      // 대댓글단 유저의 ID (Login 한 유저의 ID)
+          , postId : props.postId           // 비디오 ID
+          , responseTo : props.comment._id  // 댓글단 유저의 ID
+        }
+
+        Axios.post('/api/comment/saveComment', variables)
+        .then((response) => {
+        if(response.data.success) {
+            console.log(response.data.result)
+            setCommentValue("");
+            props.refreshFunction(response.data.result) // 상위 컴포넌트에 새로운 댓글목록을 다시 전달함.
+        } else {
+            alert('코멘트를 저장하지 못했습니다.')
+        }})
+    }
+
+    const actions = [
+        <span onClick={onClickReplyOpen} key = "comment-basic-reply-to"> Reply to</span>
+    ]
+
+    return (
+        <div>
+            <Comment
+                actions={actions}
+                author={props.comment.writer.name}
+                avatar={<Avatar src={props.comment.writer.image} />}
+                content={<p>{props.comment.content}</p>}
+            />
+            
+            {/* 대댓글 달기 버튼을 클릭 하였을때만 보이도록! */}
+            {OpenReply &&
+                <form style={{ display : 'flex'}} onSubmit={onSubmit}>
+                    <textarea
+                        style = {{ width : '100%', borderRadius : '5px' }}
+                        onChange = {onHandleChange}
+                        value = {CommentValue}
+                        placeholder='코멘트를 작성해 주세요'
+                    />
+                    <br />
+                    <button style ={{ width : '20%', height : '52px' }} onClick={onSubmit}>Submit</button>
+                </form>
+            }
+        </div>
+    )
+}
+
+export default SingleComment
+---
+(server/routes/comment.js)
+const express = require('express');
+const router = express.Router();
+
+const { Comment } = require("../models/Comment");
+
+// Comment
+
+// 댓글 저장
+router.post('/saveComment', (req, res) => {
+    const comment = new Comment(req.body)   // 모든 클라이언트 정보를 가져온다!
+
+    // MongoDB 저장
+    comment.save(( err, comment ) => {
+        if(err) return res.json({ success : false, err })
+        Comment.find({ '_id' : comment._id })
+               .populate('writer')
+               .exec ( (err, result) => {
+                if(err) return res.json({ success : false, err })
+                    res.status(200).json({ success : true, result })
+               })
+    })
+})
+
+// 해당 영상의 댓글 가져오기
+router.post("/getComments", (req, res) => {
+    Comment.find({ postId : req.body.videoId })
+    .populate("writer")
+    .exec(( err, comments) => {
+        if(err) return res.status(400).send(err);
+        res.status(200).json({ success : true, comments});
+    });
+});
+
+module.exports = router;

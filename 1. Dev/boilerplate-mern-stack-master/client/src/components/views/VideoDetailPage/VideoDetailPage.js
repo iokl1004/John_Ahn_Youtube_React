@@ -7,20 +7,38 @@ import Comment from './Sections/Comment'        // 댓글
 
 function VideoDetailPage(props) {
     
-    const videoId = props.match.params.videoId  // Video ID 값 가져오기!
+    const videoId = props.match.params.videoId; // Video ID 값 가져오기!
     const variable = { videoId : videoId }      // videoId : videoId 값
-    const [VideoDetail, setVideoDetail] = useState([])
+    const [VideoDetail, setVideoDetail] = useState([]);
+    const [Comments, setComments] = useState([]);   // Comments(댓글)가 담길 빈 배열을 만들어 준다.
 
     useEffect(() => {
         Axios.post('/api/video/getVideoDetail', variable)
-        .then(response => {
+        .then((response) => {
             if(response.data.success) {
                 setVideoDetail(response.data.videoDetail)   // routes/video.js에서 전달 한 videoDetail값
             } else {
                 alert('비디오 정보를 가져오길 실패했습니다.')
             }
-        })
+        });
+
+        // 해당 비디오의 모든 댓글을 가져오기
+        Axios.post('/api/comment/getComments', variable)
+        .then((response) => {
+            if(response.data.success) {
+                console.log(response.data.comments)
+                setComments(response.data.comments)
+            } else {
+                alert('코멘트 정보를 가져오는 것을 실패 하였습니다.')
+            }
+        });
     }, [])
+
+    const refreshFunction = (newComment) => {
+        // 자식컴포넌트에서 버튼을 클릭하면, 자식에서 받아온 comment정보(새 댓글)를 newComment라고 한다.
+        console.log(newComment);
+        setComments(Comments.concat(newComment))    // Comments(댓글)가 담긴 배열에 자식에서 받아온 newComment(새 댓글)를 추가한다.
+    }
 
     if(VideoDetail.writer) {
 
@@ -28,8 +46,8 @@ function VideoDetailPage(props) {
         const subscribeButton = VideoDetail.writer._id !==
         localStorage.getItem('userId') && (
             <Subscribe
-            userTo={VideoDetail.writer._id}
-            userFrom={localStorage.getItem('userId')}
+                userTo={VideoDetail.writer._id}
+                userFrom={localStorage.getItem('userId')}
             />
         );
         //witer를 서버에서 가져오기전에 페이지를 렌더링 할려고해서
@@ -52,7 +70,11 @@ function VideoDetailPage(props) {
                     </List.Item>
         
                     {/* Comment */}
-                    <Comment />
+                    <Comment
+                        refreshFunction={refreshFunction}
+                        commentLists={Comments}
+                        postId={videoId}
+                    />
         
                 </div>
         

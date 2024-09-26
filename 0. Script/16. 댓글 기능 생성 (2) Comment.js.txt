@@ -1,0 +1,139 @@
+16. 댓글 기능 생성 (2) Comment.js
+
+1. Comment.js를 위한 template 만들기
+2. handleChange func 만들기
+3. OnSubmit func 만들기
+4. 저장된 댓글 데이터를 Parent Component로 업데이트 하기
+5. 콘솔창에서 댓글 리스트들 확인.
+
+SingleComment.js			Comment.js				DetailVideoPage.js
+props.refreshFunction	→	props.refreshFunction	→	loadComments
+---
+(중략...)
+(client/src/components/views/VideoDetailPage/VideoDetailPage.js)
+return (
+            <Row gutter = {[16, 16]}>
+                <Col lg={18} xs={24}>
+        
+                <div style={{ width : '100%', padding : '3rem 4rem' }}>
+                    <video style = {{ width : '100%' }} src={`http://localhost:5000/${VideoDetail.filePath}`} controls />
+        
+                    <List.Item
+                        actions={[subscribeButton]}
+                    >
+                        <List.Item.Meta
+                            avatar={<Avatar src ={VideoDetail.writer.image} />}
+                            title={VideoDetail.writer.name}
+                            description={VideoDetail.description}
+                        />
+                    </List.Item>
+        
+                    {/* Comment */}
+                    <Comment postId={videoId}/>
+        
+                </div>
+        
+                </Col>
+                <Col lg={6} xs={24}>
+                    <SideVideo />
+                </Col>
+            </Row>
+          )
+    } else {
+        return (
+            <div>...loading</div>
+        )
+    }
+(중략...)
+---
+(client/src/components/views/VideoDetailPage/Sections/Comment.js)
+import React from 'react';
+import { useState } from 'react';
+import Axios from 'axios';
+import { useSelector } from 'react-redux';
+
+function Comment(props) {
+  const videoId = props.postId                          // 비디오 ID
+  const user = useSelector((state) => state.user);      // Login한 유저의 정보를 가져온다!
+  const [commentValue, setCommentValue] = useState(''); // 댓글
+
+  const handleClick = (e) => {
+      setCommentValue(e.currentTarget.value);
+  }
+
+  const onSubmit = (e) => {
+    // 버튼 클릭 시, 새로고침 방지
+    e.preventDefault();
+
+    const variables = {
+        content : commentValue      // 댓글
+      , writer : user.userData._id  // Login 한 유저의 ID
+      , postId : videoId            // 비디오 ID
+    }
+
+    // 치는사람의 정보, 코멘트의 내용 여러가지 정보를 DB에 넣어줘야함
+    Axios.post('/api/comment/saveComment', variables)
+    .then((response => {
+      if(response.data.success) {
+        console.log(response.data.result)
+      } else {
+        alert('코멘트를 저장하지 못했습니다.')
+      }
+    }))
+  }
+
+  return (
+    <div>
+      <br />
+      <p> Replies </p>
+      <hr />
+      {/* Coment Lists */}
+
+      {/* Root Comment Form */}
+
+      <form style={{ display : 'flex'}} onSubmit={onSubmit} >
+        <textarea
+          style = {{ width : '100%', borderRadius : '5px' }}
+          onChange={handleClick}
+          value={commentValue}
+          placeholder='코멘트를 작성해 주세요'
+        />
+        <br />
+        <button style ={{ width : '20%', height : '52px' }} onClick={onSubmit} >Submit</button>
+      </form>
+    </div>
+  )
+}
+
+export default Comment
+---
+(server/index.js)
+(중략...)
+app.use('/api/comment', require('./routes/comment'));       // 댓글
+(중략...)
+---
+(server/routes/comment.js)
+const express = require('express');
+const router = express.Router();
+
+const { Comment } = require("../models/Comment");
+
+// Comment
+
+// 해당 영상의 구독자 수 가져오기
+router.post('/saveComment', (req, res) => {
+    const comment = new Comment(req.body)   // 모든 클라이언트 정보를 가져온다!
+
+    // MongoDB 저장
+    comment.save(( err, comment ) => {
+        if(err) return res.json({ success : false, err })
+        Comment.find({ '_id' : comment._id })
+               .populate('writer')
+               .exec ( (err, result) => {
+                if(err) return res.json({ success : false, err })
+                    res.status(200).json({ success : true, result })
+               })
+    })
+})
+
+module.exports = router;
