@@ -39,6 +39,7 @@ function SingleComment(props) {
         if(response.data.success) {
             console.log(response.data.result)
             setCommentValue("");
+            setOpenRelpy(false);                        // Submit 완료 후, 코멘트 작성창 닫기!
             props.refreshFunction(response.data.result) // 상위 컴포넌트에 새로운 댓글목록을 다시 전달함.
         } else {
             alert('코멘트를 저장하지 못했습니다.')
@@ -46,7 +47,12 @@ function SingleComment(props) {
     }
 
     const actions = [
-        <span onClick={onClickReplyOpen} key = "comment-basic-reply-to"> Reply to</span>
+        <span
+            onClick={onClickReplyOpen}
+            key="comment-basic-reply-to"
+        >
+            Reply to
+        </span>
     ]
 
     return (
@@ -59,7 +65,7 @@ function SingleComment(props) {
             />
             
             {/* 대댓글 달기 버튼을 클릭 하였을때만 보이도록! */}
-            {OpenReply &&
+            {OpenReply && (
                 <form style={{ display : 'flex'}} onSubmit={onSubmit}>
                     <textarea
                         style = {{ width : '100%', borderRadius : '5px' }}
@@ -70,7 +76,7 @@ function SingleComment(props) {
                     <br />
                     <button style ={{ width : '20%', height : '52px' }} onClick={onSubmit}>Submit</button>
                 </form>
-            }
+            )}
         </div>
     )
 }

@@ -1,0 +1,80 @@
+19. 좋아요 싫어요 기능 생성 (1) 구조 설명
+
+1. Like & DisLike Model 만들기
+ - Like
+  - userId
+  - commentId
+  - videoId
+ - DisLike
+  - userId
+  - commentId
+  - videoId
+
+2. 구조 설명
+좋아요 Click
+Case 1. 아직 아무것도 클릭되어 있지 않다면
+ - 좋아요 1 올리기
+Csae 2. 좋아요 버튼이 이미 클릭되어 있다면
+ - 좋아요 1 내리기
+Case 3. 싫어요 버튼이 이미 클릭되어 있다면
+ - 좋아요 1올리고, 싫어요 1내리기
+
+싫어요 Click
+Case 1. 아무것도 클릭되어 있지 않다면
+ - 싫어요 1 올리기
+Case 2. 싫어요 버튼이 이미 클릭되어 있다면
+ - 싫어요 1 내리기
+Case 3. 좋아요 버튼이 이미 클릭되어 있다면
+  - 싫어요 1 올리고, 좋아요 1내리기
+---
+(server/models/Like.js)
+const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
+
+const likeSchema = mongoose.Schema({
+    userId : {
+          type : Schema.Types.ObjectId
+        , ref:'User'
+    },
+    commentId : {
+          type : Schema.Types.ObjectId
+        , ref:'Comment'
+    },
+    videoId : {
+          type : Schema.Types.ObjectId
+        , ref:'Video'
+    }
+
+}, { timestamps : true })   // 데이터를 만든 시각을 저장한다
+
+
+
+const Like = mongoose.model('Like', likeSchema);
+
+module.exports = { Like }
+---
+(server/models/Dislike.js)
+const mongoose = require('mongoose');
+const Schema = mongoose.Schema;
+
+const dislikeSchema = mongoose.Schema({
+    userId : {
+          type : Schema.Types.ObjectId
+        , ref:'User'
+    },
+    commentId : {
+          type : Schema.Types.ObjectId
+        , ref:'Comment'
+    },
+    videoId : {
+          type : Schema.Types.ObjectId
+        , ref:'Video'
+    }
+
+}, { timestamps : true })   // 데이터를 만든 시각을 저장한다
+
+
+
+const Dislike = mongoose.model('Dislike', dislikeSchema);
+
+module.exports = { Dislike }

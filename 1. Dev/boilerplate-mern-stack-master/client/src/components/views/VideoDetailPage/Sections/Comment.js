@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react'
 import Axios from 'axios';
 import { useSelector } from 'react-redux';
-import SingleComment from './SingleComment';
+import SingleComment from './SingleComment';  // 댓글
+import ReplyComment from './ReplyComment';    // 대댓글
 
 function Comment(props) {
-  const videoId = props.postId                          // 비디오 ID
+  const postId = props.postId;                         // 비디오 ID
   const user = useSelector((state) => state.user);      // Redux를 이용하여, Login한 유저의 정보를 가져온다!
   const [commentValue, setCommentValue] = useState(); // 댓글
 
@@ -19,7 +20,7 @@ function Comment(props) {
     const variables = {
         content : commentValue      // 댓글
       , writer : user.userData._id  // Login 한 유저의 ID
-      , postId : videoId            // 비디오 ID
+      , postId : postId             // 비디오 ID
     }
 
     // 입력한 사람의 정보, 코멘트의 내용 여러가지 정보를 DB에 넣어줘야함
@@ -39,17 +40,24 @@ function Comment(props) {
     <div>
       {/* Coment Lists */}
       {props.commentLists &&
-        props.commentLists.map(
-          (comment, index) => 
+        props.commentLists.map((comment, index) => (
           !comment.responseTo && (
-            <SingleComment
-              key={index}
-              refreshFunction={props.refreshFunction}
-              comment={comment}
-              postId={videoId}
-            />
-        )
-      )}
+            <React.Fragment key={index}>
+              <SingleComment
+                refreshFunction={props.refreshFunction}
+                comment={comment}
+                postId={postId}
+                key={index}
+              />
+              <ReplyComment
+                refreshFunction={props.refreshFunction}
+                commentLists={props.commentLists}
+                parentCommentId = {comment._id}
+                postId={postId}
+              />
+            </React.Fragment>
+          )
+      ))}
 
       {/* Root Comment Form */}
 
