@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react'
 import { Row, Col, List, Avatar} from 'antd'
 import Axios from 'axios'
-import SideVideo from './Sections/SideVideo'    // 오른쪽 비디오들
-import Subscribe from './Sections/Subscribe'    // 구독
-import Comment from './Sections/Comment'        // 댓글
+import SideVideo from './Sections/SideVideo'        // 오른쪽 비디오들
+import Subscribe from './Sections/Subscribe'        // 구독
+import Comment from './Sections/Comment'            // 댓글
+import LikeDislikes from './Sections/LikeDislikes'  // 좋아요/싫어요
 
 function VideoDetailPage(props) {
     
@@ -60,7 +61,14 @@ function VideoDetailPage(props) {
                     <video style = {{ width : '100%' }} src={`http://localhost:5000/${VideoDetail.filePath}`} controls />
         
                     <List.Item
-                        actions={[subscribeButton]}
+                        // 해당 영상에 대한 좋아요/싫어요 가져오기
+                        actions={[ <LikeDislikes
+                                        video
+                                        userId={localStorage.getItem('userId')}
+                                        videoId={videoId}
+                                    />
+                                    , subscribeButton
+                                ]}
                     >
                         <List.Item.Meta
                             avatar={<Avatar src ={VideoDetail.writer.image} />}
